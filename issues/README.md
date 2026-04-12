@@ -47,7 +47,29 @@
 | **P2** | [HTTP 5xx 不重试 + 流式中断不可恢复](./16-retry-and-stream-recovery.md) | 可靠性 | 瞬态错误导致不必要的模型切换 |
 | **P2** | [thinkFilter O(n^2) + 无界缓冲区](./17-think-filter-performance.md) | 性能/安全 | 长 reasoning 输出时性能退化或 OOM |
 
-## 第三部分：未来发展方向
+## 第三部分：借鉴 Hermes Agent 的能力增强
+
+通过与 Hermes Agent（Nous Research）的深度对比分析，识别出以下 DMR 缺失但值得补齐的能力：
+
+| 优先级 | Issue | 灵感来源 | 核心价值 |
+|--------|-------|----------|----------|
+| **P0** | [持久记忆系统 — 跨会话记忆与用户建模](./30-memory-system.md) | Hermes MEMORY.md/USER.md + Honcho | Agent 记住用户偏好和环境事实，越用越懂你 |
+| **P0** | [视觉分析插件 — 图像理解与截图分析](./31-vision-plugin.md) | Hermes vision_analyze | 截图分析、UI 审查、图表理解、OCR |
+| **P1** | [技能自创建 — Agent 从成功任务中提取技能](./32-skill-auto-creation.md) | Hermes skill_manage | 复杂任务经验沉淀为可复用技能 |
+| **P1** | [后台自学习 — AfterAgentRun 驱动知识提取](./33-background-self-learning.md) | Hermes 后台复查线程 | 自动发现值得记住的信息和可复用流程 |
+| **P1** | [浏览器自动化 — MCP 桥接 Playwright](./34-browser-automation-mcp.md) | Hermes browser_tool | 零代码获得完整浏览器操作能力 |
+| **P3** | [TTS/STT 语音交互](./35-tts-stt-integration.md) | Hermes edge-tts + whisper | 无障碍语音交互 |
+
+### 依赖关系
+
+```
+#33 后台自学习 ──→ #30 记忆系统 (触发 memoryWrite)
+#33 后台自学习 ──→ #32 技能自创建 (触发 skillCreate)
+#34 浏览器自动化 ──→ #31 视觉分析 (截图 + 分析闭环)
+#30 记忆系统 ──→ #25 自主进化 (记忆为进化提供用户偏好数据)
+```
+
+## 第四部分：未来发展方向（TapeAgents 灵感）
 
 深入分析 TapeAgents 的高级能力（微调管线、Studio 调试、远程执行、GAIA Agent 模式）后，识别出以下 DMR 可发展的方向：
 
