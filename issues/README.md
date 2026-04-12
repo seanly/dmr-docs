@@ -84,6 +84,7 @@
 | **P2** | [Plan-Survey-Act 结构化推理](./21-structured-reasoning.md) | GAIA Agent pattern | 复杂任务时 agent 有全局规划和自检能力 |
 | **P3** | [Tape 浏览器与人工审查标注](./24-tape-browser-annotation.md) | Studio browser + observer | 团队协作审查 agent 行为，积累标注数据 |
 | **P1** | [集成投票标注 — 离线投票给 Tape 打质量标签](./26-consensus-voting-label.md) | GAIA majority_vote (maj@3) | 数据质量：用投票共识度标注 tape，为进化路由提供实证依据 |
+| **P2** | [Tape 备份与恢复 — 基于 Cloudflare R2 的归档方案](./36-tape-backup-restore.md) | 生产需求 | 灾备：零出站费归档 + 增量备份 + 时间点恢复 |
 
 ### 发展路线图建议
 
