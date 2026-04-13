@@ -86,6 +86,30 @@
 | **P1** | [集成投票标注 — 离线投票给 Tape 打质量标签](./26-consensus-voting-label.md) | GAIA majority_vote (maj@3) | 数据质量：用投票共识度标注 tape，为进化路由提供实证依据 |
 | **P2** | [Tape 备份与恢复 — 基于 Cloudflare R2 的归档方案](./36-tape-backup-restore.md) | 生产需求 | 灾备：零出站费归档 + 增量备份 + 时间点恢复 |
 
+## 第五部分：用户体验分析 — 高频用户视角的改进提案
+
+以重度 CLI 用户的日常使用体验为出发点，识别出影响使用效率和信心的核心痛点：
+
+| 优先级 | Issue | 分类 | 核心价值 |
+|--------|-------|------|----------|
+| **P1** | [流式输出 — CLI 实时显示 LLM 生成过程](./37-streaming-output.md) | 交互体验 | 消除黑洞等待，提供实时反馈 |
+| **P2** | [CLI Markdown 渲染 — 终端富文本输出](./38-cli-markdown-rendering.md) | 交互体验 | 代码高亮、表格对齐、可读性提升 |
+| **P1** | [会话管理增强 — Tape 列表、清理与恢复](./39-session-tape-management.md) | 会话管理 | 长期使用的可持续性 |
+| **P1** | [ToolSearch 限制优化 — 可配置搜索与 Compact 恢复](./40-toolsearch-compact-recovery.md) | 工具系统 | 消除 compact 后的工具退化 |
+| **P0** | [Secret Redaction — 工具输出中的凭据脱敏](./41-secret-redaction.md) | 安全 | 生产环境使用的前提条件 |
+| **P2** | [Deny Always — 审批系统持久化拒绝选项](./42-deny-always-approval.md) | 安全 | 防止危险操作误批 |
+| **P1** | [执行成本与进度追踪 — Token 消耗可视化](./43-usage-cost-tracking.md) | 可观测性 | 成本透明，预算可控 |
+| **P2** | [Brain Channel 管理 — 多通道可见性与控制](./44-brain-channel-management.md) | 运维 | brain 模式的生产可用性 |
+
+### 依赖关系
+
+```
+#37 流式输出 ──→ #38 Markdown 渲染 (流式模式下需要按段落边界缓冲渲染)
+#37 流式输出 ──→ #43 成本追踪 (流式事件中嵌入进度信息)
+#41 Secret Redaction ←── #10 凭据管理 (复用 credential store)
+#44 Brain Channel ──→ #43 成本追踪 (channel 级 token 统计)
+```
+
 ### 发展路线图建议
 
 ```
@@ -124,6 +148,41 @@ Phase 3 (智能增强):
 #20 Explainable  ──→ #24 Review Workflow (审查时看 reasoning)
 #18 Data Mining  ←── #24 Annotations (标注数据反哺分析)
 #01 Observability ─→ #18 Data Mining (LLM 成本数据)
+```
+
+## 第六部分：第一性原理架构审计 — 类型安全与失败处理
+
+从第一性原理出发，对 DMR 代码库进行架构级审计。核心发现：DMR 的设计理念是 "trust, but verify"，但实现层面在多个关键路径上做了与目标相矛盾的妥协——验证层（OPA）可静默失败、审计层（Tape）错误被忽略、类型安全被系统性绕过。
+
+| 优先级 | Issue | 类型 | 风险 |
+|--------|-------|------|------|
+| **P1** | [State Map 服务定位器反模式](./45-state-service-locator.md) | 架构缺陷 | 6 种 `_runtime_*` magic key，13+ 处无编译时保障的类型断言 |
+| **P1** | [Hook 系统类型安全不完整](./46-hook-type-safety.md) | 架构缺陷 | 5/13 hook 无 typed wrapper，typed wrapper 中仍含 stale `any` 字段 |
+| **P1** | [Config.Validate() 死代码](./47-config-validate-dead-code.md) | 逻辑缺陷 | 配置验证已实现但从未调用；解析错误静默回退到默认值 |
+| **P0** | [插件初始化无关键性区分](./48-plugin-init-criticality.md) | 安全缺陷 | OPA 策略引擎初始化失败时 agent 照常运行，安全策略被旁路 |
+| **P2** | [Args Map 命名空间污染](./49-args-namespace-pollution.md) | 设计缺陷 | Credential 注入混入工具参数 map，隐式耦合 + 泄露风险 |
+| **P1** | [Cron 死锁 + 虚假持久化](./50-cron-deadlock-fake-persistence.md) | 实现缺陷 | Mutex 不可重入导致确定性死锁；队列声称 SQLite 但实为内存 channel |
+| **P1** | [外部插件无重连机制](./51-external-plugin-reconnect.md) | 可靠性 | 插件进程崩溃后永久失效，brain 长运行模式下尤为严重 |
+| **P2** | [关键路径测试盲区](./52-test-coverage-blind-spots.md) | 质量风险 | Agent 主循环、webserver、toolsearch、RPC 协议等关键组件零测试 |
+
+### 核心矛盾
+
+DMR 的第一性原理是 **"In dmr we trust, but verify"**。但从实现来看：
+
+1. **验证层可静默失败** (#48) — OPA 初始化失败被 warn 吞掉，agent 在无策略状态下运行
+2. **类型安全被系统性绕过** (#45, #46) — `map[string]any` 和 `...any` 把类型检查推迟到运行时
+3. **配置验证从不执行** (#47) — Validate() 是死代码，错误配置不会 fail-fast
+4. **缺陷集中在无测试区域** (#52) — 已知 bug（死锁 #50、安全旁路 #48）恰好缺乏测试覆盖
+
+### 依赖关系
+
+```
+#45 State 服务定位器 ←→ #46 Hook 类型安全 (共同的 any 逃逸问题)
+#45 State 服务定位器 ←→ #49 Args 污染 (ToolContext 结构化统一解决)
+#48 Plugin init 分级 ──→ #47 Config 验证 (配置层 + 运行时层双保险)
+#50 Cron 死锁 ──→ #52 测试盲区 (死锁需要测试覆盖)
+#51 外部插件重连 ──→ #52 测试盲区 (RPC 错误场景需要测试)
+#45, #46 ──→ #29 插件接口重构 (接口层面的统一治理)
 ```
 
 ## 未采纳
